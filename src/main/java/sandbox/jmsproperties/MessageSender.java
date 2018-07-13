@@ -1,20 +1,28 @@
 package sandbox.jmsproperties;
 
+import org.apache.activemq.command.ActiveMQQueue;
+import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.jms.core.JmsMessagingTemplate;
 import org.springframework.jms.core.JmsTemplate;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.ContextLoader;
+import org.springframework.web.context.support.XmlWebApplicationContext;
 
 import javax.jms.*;
+import java.util.UUID;
 
 /**
  * Created by tama on 01/06/2018.
  */
 @RestController()
-@RequestMapping("/jms")
 public class MessageSender {
 
     @Autowired
@@ -37,10 +45,50 @@ public class MessageSender {
     @Autowired
     ConnectionFactory connectionFactory;
 
+    @Autowired
+    SelectorHolder holder;
 
-    @RequestMapping("/send")
-    public String index() throws Exception {
+    @RequestMapping("/add/consumer1/{contractor}")
+    public String addConsumer1(@PathVariable("contractor") String contractor) throws Exception {
+        holder.addSelectionConsumer1(contractor);
+        return "added contractor to Dynamic Consumer 1: "+ contractor;
 
+    }
+
+    @RequestMapping("/reset")
+    public void reset() throws Exception {
+        context.getAutowireCapableBeanFactory().createBean(DynamicConsumer1.class);
+    }
+
+    @RequestMapping("/send/{contractor}")
+    public String index(@PathVariable("contractor") String contractor) throws Exception {
+
+
+        variant2(contractor);
+        //variant1();
+
+
+        return "Greetings from Spring Boot!";
+    }
+
+    private void variant2(@PathVariable("contractor") String contractor) {
+        jmsTemplate.convertAndSend(queueName, "POOOOOOORRCOOOOOOODDDIIIOOOOO"+contractor, m -> {
+
+            m.setJMSDestination(new ActiveMQQueue(queueName));
+            m.setJMSDeliveryMode(DeliveryMode.NON_PERSISTENT);
+            m.setJMSPriority(Message.DEFAULT_PRIORITY);
+            m.setJMSTimestamp(System.nanoTime());
+            m.setJMSType(contractor);
+            m.setJMSExpiration(500);
+
+            m.setStringProperty("jms-custom-header", "this is a custom jms property");
+            m.setBooleanProperty("jms-custom-property", true);
+            m.setDoubleProperty("jms-custom-property-price", 0.0);
+            return m;
+        });
+    }
+
+    private void variant1() throws JMSException {
         // Create a Connection
         Connection connection = connectionFactory.createConnection();
         connection.start();
@@ -66,16 +114,6 @@ public class MessageSender {
         // Clean up
         session.close();
         connection.close();
-
-
-        //      jmsTemplate.setConnectionFactory(connectionFactory);
-        //      jmsMessagingTemplate.setConnectionFactory(connectionFactory);
-        //  ActiveMQTextMessage message = new ActiveMQTextMessage();
-        // MessageBuilder
-        // jmsMessagingTemplate.send(propertiesQueueDestination,message);
-
-
-        return "Greetings from Spring Boot!";
     }
 
 }
